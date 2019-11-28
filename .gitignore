@@ -1,0 +1,9 @@
+# .gitignore
+
+# osx
+oscript
+*.so
+/*.dSYM/
+.vscode
+
+

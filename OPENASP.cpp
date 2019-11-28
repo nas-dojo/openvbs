@@ -577,7 +577,12 @@ wprintf(L"###%s: Implement here '%s' line %d. (%ls)\n", __func__, __FILE__, __LI
 
 class Request : public IDispatch{
 public:
-    Request(){}
+    context* ctx;
+
+public:
+    Request(context* rctx)
+        :ctx(rctx)
+    {}
     virtual ~Request(){}
 
 private:
@@ -590,13 +595,98 @@ private:
     HRESULT GetTypeInfoCount(UINT *pctinfo){ return E_NOTIMPL; }
     HRESULT GetTypeInfo(UINT iTInfo, LCID lcid, ITypeInfo **ppTInfo){ return E_NOTIMPL; }
     HRESULT GetIDsOfNames(REFIID riid, LPOLESTR *rgszNames, UINT cNames, LCID lcid, DISPID *rgDispId){
-wprintf(L"###%s: Implement here '%s' line %d. (%ls)\n", __func__, __FILE__, __LINE__, *rgszNames);
-        return DISP_E_MEMBERNOTFOUND;
+//wprintf(L"###%s: Implement here '%s' line %d. (%ls)\n", __func__, __FILE__, __LINE__, *rgszNames);
+//        return DISP_E_MEMBERNOTFOUND;
+
+        if(_wcsicmp(*rgszNames, L"QueryString") == 0){
+            *rgDispId = 1;
+        }else
+        {
+            return E_FAIL;
+        }
+
+        return S_OK;
     }
     HRESULT Invoke(DISPID dispIdMember, REFIID riid, LCID lcid, WORD wFlags, 
         DISPPARAMS *pDispParams, VARIANT *pVarResult, EXCEPINFO *pExcepInfo, UINT *puArgErr)
     {
-        return DISP_E_MEMBERNOTFOUND;
+//        return DISP_E_MEMBERNOTFOUND;
+
+        if(dispIdMember == 1){
+
+            VARIANT* pv = pDispParams->rgvarg;
+            if(pv->vt == (VT_BYREF|VT_VARIANT)) pv = pv->pvarVal;
+
+            _variant_t v;
+            if(::VariantChangeType(&v, pv, 0, VT_BSTR) == S_OK){
+            }else{
+                //### TODO check behavior of asp
+                return E_FAIL;
+            }
+
+            //### still url encoding
+
+            LOG("request invoke 1 %s", ctx->hdr.m_pURI);
+            LOG("request arg %ls", v.bstrVal);
+
+
+            int i = -1;
+            while (ctx->hdr.m_pURI[++i] != '?' && ctx->hdr.m_pURI[i]);
+
+            if(!ctx->hdr.m_pURI[i]) {
+                
+                //### query string is nothing.  check behavior of asp
+
+                pVarResult->vt = VT_BSTR;
+                pVarResult->bstrVal = SysAllocString(L"");
+                return S_OK;
+
+            }
+
+            int p = ++i;
+
+            while (ctx->hdr.m_pURI[++p] != '=' && ctx->hdr.m_pURI[p]);
+
+            if(!ctx->hdr.m_pURI[i]) {
+                
+                //### '=' is nothing. syntax error.  check behavior of asp
+
+                pVarResult->vt = VT_BSTR;
+                pVarResult->bstrVal = SysAllocString(L"");
+                return S_OK;
+
+            }
+            
+            char* buf = (char*)malloc((p-i-1)*sizeof(char) + 1);
+            memcpy(buf, ctx->hdr.m_pURI+i+1, p-i-1);
+            buf[p-i] = '\0';
+            
+            size_t n = utf8_wchar(nullptr, 0, buf);
+            BSTR name = SysAllocStringLen(NULL, n);
+            utf8_wchar(name, n, ctx->hdr.m_pURI+i);
+
+            LOG("hello %ls %d", name, i);
+
+
+
+
+            n = utf8_wchar(nullptr, 0, ctx->hdr.m_pURI);
+            BSTR s = SysAllocStringLen(NULL, n);
+            utf8_wchar(s, n, ctx->hdr.m_pURI);
+
+            
+
+            pVarResult->vt = VT_BSTR;
+            pVarResult->bstrVal = name;
+
+            free(buf);
+
+            return S_OK;
+        }
+
+        return E_FAIL;
+
+
     }
 };
 
@@ -977,6 +1067,10 @@ int  on_http_request(SOCKET sock, context* ctx){
     char aPath[256];
     sprintf(aPath, "wwwroot/%s", (ctx->hdr.m_pURI[i]) ? "" : &ctx->hdr.m_pURI[1]);
 
+    int p = -1;
+    while(aPath[++p] != '?' && aPath[p]);
+    aPath[p] = '\0';
+    
 #ifdef _WIN32
 	FILE* f = fopen(aPath, "rb");
 #else
@@ -1109,7 +1203,7 @@ int  on_http_request_osp(SOCKET sock, context* ctx, FILE* f){
         Server      oServer;
         Application oApplication;
         Session     oSession;
-        Request     oRequest;
+        Request     oRequest(ctx);
         Response    oResponse(soto);
 
         CExtension oExt = {

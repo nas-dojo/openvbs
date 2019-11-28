@@ -1,0 +1,13 @@
+aaa
+<%
+
+response.write("hello")
+
+dim qs
+qs = request.QueryString("bbb")
+
+response.write(qs)
+
+%>
+
+

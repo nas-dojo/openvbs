@@ -1,0 +1,6 @@
+
+
+dim osp = new OpenASP
+osp()
+
+
