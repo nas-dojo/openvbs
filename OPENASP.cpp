@@ -626,10 +626,78 @@ private:
 
             //### still url encoding
 
+            size_t n = wchar_utf8(nullptr, 0, v.bstrVal);
+            char* name = (char*)malloc(n+1);
+            wchar_utf8(name, n, v.bstrVal);
+
             LOG("request invoke 1 %s", ctx->hdr.m_pURI);
             LOG("request arg %ls", v.bstrVal);
+            LOG("request arg name %s", name);
+
+            int i = -1;
+            while (ctx->hdr.m_pURI[++i] != '?' && ctx->hdr.m_pURI[i]);
+
+            if(!ctx->hdr.m_pURI[i]) {
+                
+                //### query string is nothing.  check behavior of asp
+
+                LOG("ret 1");
+
+                pVarResult->vt = VT_BSTR;
+                pVarResult->bstrVal = SysAllocString(L"");
+                return S_OK;
+
+            }
+
+            size_t len = strlen(ctx->hdr.m_pURI+(++i));
+
+            char* buf = (char*)malloc(len+1);
+            strncpy(buf, ctx->hdr.m_pURI+i, len);
+            buf[len] = '\0';
+
+            LOG("request query buf %s", buf);
+
+            char* val = nullptr;
+            i = 0;
+
+            while(buf[i]) {
+
+                int p = i-1;
+
+                while (buf[++p] != '=' && buf[p]);
+
+                if (!ctx->hdr.m_pURI[p]) {
+
+                    //### '=' is nothing. syntax error.  check behavior of asp
+
+                    continue;
+                }
+
+                buf
 
 
+            }
+
+
+            if (!ctx->hdr.m_pURI[p]) {
+
+                //### '=' is nothing. syntax error.  check behavior of asp
+
+                LOG("ret 2");
+
+                pVarResult->vt = VT_BSTR;
+                pVarResult->bstrVal = SysAllocString(L"");
+                return S_OK;
+            }
+
+
+
+            free(buf);
+            free(name);
+
+            return S_OK;
+
+/*
             int i = -1;
             while (ctx->hdr.m_pURI[++i] != '?' && ctx->hdr.m_pURI[i]);
 
@@ -682,6 +750,7 @@ private:
             free(buf);
 
             return S_OK;
+            */
         }
 
         return E_FAIL;
