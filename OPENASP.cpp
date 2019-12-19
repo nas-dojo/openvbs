@@ -635,7 +635,7 @@ private:
             LOG("request arg name %s", name);
 
             int i = -1;
-            while (ctx->hdr.m_pURI[++i] != '?' && ctx->hdr.m_pURI[i]);
+            while(ctx->hdr.m_pURI[++i] != '?' && ctx->hdr.m_pURI[i]);
 
             if(!ctx->hdr.m_pURI[i]) {
                 
@@ -653,104 +653,89 @@ private:
 
             char* buf = (char*)malloc(len+1);
             strncpy(buf, ctx->hdr.m_pURI+i, len);
-            buf[len] = '\0';
+            //buf[len] = '\0';
 
             LOG("request query buf %s", buf);
 
             char* val = nullptr;
             i = 0;
 
+            int p = i - 1;
             while(buf[i]) {
 
-                int p = i-1;
+                while(buf[++p] != '=' && buf[p]);
 
-                while (buf[++p] != '=' && buf[p]);
-
-                if (!ctx->hdr.m_pURI[p]) {
+                if(!buf[p]) {
 
                     //### '=' is nothing. syntax error.  check behavior of asp
 
-                    continue;
+                    pVarResult->vt = VT_BSTR;
+                    pVarResult->bstrVal = SysAllocString(L"");
+                    return S_OK;
                 }
 
-                buf
 
+                buf[p] = '\0';
 
+                LOG("%s", buf+i);
+
+                int cmp = strcmp(name, buf+i);
+
+                if(p == len) {
+                    if(cmp == 0) {
+                        val = buf + p;
+                        LOG("same");
+
+                        break;
+                    } else {
+
+                        // nothing? empty? not find key.  check behavior of asp
+
+                        LOG("unsame");
+
+                        pVarResult->vt = VT_BSTR;
+                        pVarResult->bstrVal = SysAllocString(L"");
+                        return S_OK;
+                    }
+                }
+
+                i = p + 1;
+
+                while(buf[++p] != '&' && buf[p]);
+
+                if(!buf[p] || p == len) {
+                    buf[p] = '\0';
+                    if(cmp == 0) {
+                        LOG("111111");
+                        val = buf + i;
+                        break;
+                    } else {
+                        LOG("333333");
+                        val = buf + p;
+                        break;
+                    }
+                }
+
+                buf[p] = '\0';
+
+                if(cmp == 0) {
+                    LOG("222222");
+                    val = buf + i;
+                    break;
+                }
+
+                LOG("%s", buf+i);
+
+                i = p + 1;
             }
 
-
-            if (!ctx->hdr.m_pURI[p]) {
-
-                //### '=' is nothing. syntax error.  check behavior of asp
-
-                LOG("ret 2");
-
-                pVarResult->vt = VT_BSTR;
-                pVarResult->bstrVal = SysAllocString(L"");
-                return S_OK;
-            }
-
+            LOG("resut %s", val);
 
 
             free(buf);
             free(name);
 
             return S_OK;
-
-/*
-            int i = -1;
-            while (ctx->hdr.m_pURI[++i] != '?' && ctx->hdr.m_pURI[i]);
-
-            if(!ctx->hdr.m_pURI[i]) {
-                
-                //### query string is nothing.  check behavior of asp
-
-                pVarResult->vt = VT_BSTR;
-                pVarResult->bstrVal = SysAllocString(L"");
-                return S_OK;
-
-            }
-
-            int p = ++i;
-
-            while (ctx->hdr.m_pURI[++p] != '=' && ctx->hdr.m_pURI[p]);
-
-            if(!ctx->hdr.m_pURI[i]) {
-                
-                //### '=' is nothing. syntax error.  check behavior of asp
-
-                pVarResult->vt = VT_BSTR;
-                pVarResult->bstrVal = SysAllocString(L"");
-                return S_OK;
-
-            }
-            
-            char* buf = (char*)malloc((p-i-1)*sizeof(char) + 1);
-            memcpy(buf, ctx->hdr.m_pURI+i+1, p-i-1);
-            buf[p-i] = '\0';
-            
-            size_t n = utf8_wchar(nullptr, 0, buf);
-            BSTR name = SysAllocStringLen(NULL, n);
-            utf8_wchar(name, n, ctx->hdr.m_pURI+i);
-
-            LOG("hello %ls %d", name, i);
-
-
-
-
-            n = utf8_wchar(nullptr, 0, ctx->hdr.m_pURI);
-            BSTR s = SysAllocStringLen(NULL, n);
-            utf8_wchar(s, n, ctx->hdr.m_pURI);
-
-            
-
-            pVarResult->vt = VT_BSTR;
-            pVarResult->bstrVal = name;
-
-            free(buf);
-
-            return S_OK;
-            */
         }
 
         return E_FAIL;
